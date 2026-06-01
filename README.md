@@ -1,50 +1,43 @@
-# Welcome to your Expo app 👋
+# TaskE - Your Personal AI Assistant 
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+TaskE is a modern, cross-platform mobile application built to serve as a personal AI assistant. It helps users manage tasks, answer questions, and boost productivity using an intuitive chat-based interface.
 
-## Get started
+---
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+- **Conversational AI:** Seamlessly chat with an intelligent assistant to get answers and organize your day.
+- **Cross-Platform:** Runs natively on both iOS and Android from a single codebase.
+- **Modern UI/UX:** Clean, responsive design built with modern React Native components.
+- **Type-Safe:** Entirely written in strict TypeScript for robust, bug-free code.
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## Technologies Used
 
-In the output, you'll find options to open the app in a
+- **Framework:** React Native / Expo
+- **Language:** TypeScript
+- **State Management / Hooks:** Custom React Hooks
+- **AI Integration:** [Insert the AI you used here, e.g., OpenAI API / Gemini API]
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Installation & Running Locally
 
-## Get a fresh project
+To run this project on your own machine:
 
-When you're ready, run:
+1. **Clone the repository:**
+   `git clone https://github.com/Ikramik/TaskE.git`
+2. **Install dependencies:**
+   `npm install`
+3. **Start the Expo server:**
+   `npx expo start`
+4. **Run on your device:** Scan the QR code with the Expo Go app (Android/iOS).
 
-```bash
-npm run reset-project
-```
+---
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Author
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Made by **Ikram Bekkaoui** 
+🔗 [LinkedIn](https://www.linkedin.com/in/ikram-bekkaoui)  
+📂 [Portfolio](https://github.com/Ikramik)
