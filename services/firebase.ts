@@ -9,12 +9,12 @@ import { doc, getDoc, getFirestore, setDoc } from 'firebase/firestore';
 import { Task, User } from '../types';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCj6TQdwr8WCPYnIlNfzrbJR1k4sBqYWbI",
-  authDomain: "taske-f111d.firebaseapp.com",
-  projectId: "taske-f111d",
-  storageBucket: "taske-f111d.firebasestorage.app",
-  messagingSenderId: "704978248429",
-  appId: "1:704978248429:android:68d0f88da2c263704062e4"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
