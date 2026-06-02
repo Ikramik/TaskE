@@ -6,7 +6,6 @@ const TASKS_KEY = 'taske_tasks';
 export class SQLiteService {
   static async initDatabase(): Promise<void> {
     try {
-      // Initialize AsyncStorage - no setup needed
       console.log('AsyncStorage initialized for TaskE');
     } catch (error) {
       console.error('Error initializing AsyncStorage:', error);

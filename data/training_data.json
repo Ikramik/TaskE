@@ -1,0 +1,457 @@
+[
+  {
+    "text": "add workout for 1 hour for 30 minutes with medium priority as study",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "doctor appointment",
+      "duration": "30 minutes",
+      "priority": "medium",
+      "category": "study"
+    }
+  },
+  {
+    "text": "schedule call with client for wednesday with low priority for personal",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "study time",
+      "date": "wednesday",
+      "priority": "low",
+      "category": "personal"
+    }
+  },
+  {
+    "text": "schedule call with client for about 2 hours next monday as work",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "gym session",
+      "duration": "2 hours",
+      "date": "monday",
+      "category": "work"
+    }
+  },
+  {
+    "text": "add meeting at 3pm for 1.5 hours with medium priority for work",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "email review",
+      "duration": "1.5 hours",
+      "priority": "medium",
+      "category": "work"
+    }
+  },
+  {
+    "text": "schedule doctor appointment by 4pm under study",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "phone call",
+      "time": "4pm",
+      "category": "study"
+    }
+  },
+  {
+    "text": "schedule team meeting for 30 minutes for 12pm lasting 3 hours as personal",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "gym session",
+      "time": "12pm",
+      "duration": "3 hours",
+      "category": "personal"
+    }
+  },
+  {
+    "text": "schedule doctor appointment",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "laundry"
+    }
+  },
+  {
+    "text": "create study session at 2pm tomorrow around 9am for about 3 hours",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "team meeting",
+      "time": "9am",
+      "duration": "3 hours"
+    }
+  },
+  {
+    "text": "add workout for 1 hour around 10am as personal",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "project work",
+      "time": "10am",
+      "category": "personal"
+    }
+  },
+  {
+    "text": "add workout for 1 hour for 3pm for about 1 hour this tomorrow",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "project work",
+      "time": "3pm",
+      "duration": "1 hour",
+      "date": "tomorrow"
+    }
+  },
+  {
+    "text": "add dentist appointment on friday for 12pm under health",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "meal prep",
+      "time": "12pm",
+      "category": "health"
+    }
+  },
+  {
+    "text": "create study session at 2pm tomorrow next wednesday with medium priority as study",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "laundry",
+      "date": "wednesday",
+      "priority": "medium",
+      "category": "study"
+    }
+  },
+  {
+    "text": "add workout for 1 hour around 2pm for 1 hour next today",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "laundry",
+      "time": "2pm",
+      "duration": "1 hour",
+      "date": "today"
+    }
+  },
+  {
+    "text": "remind me to buy groceries under health",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "reading time",
+      "category": "health"
+    }
+  },
+  {
+    "text": "add dentist appointment on friday around 5pm for 1 hour this today",
+    "intent": "add_task",
+    "entities": {
+      "task_title": "phone call",
+      "time": "5pm",
+      "duration": "1 hour",
+      "date": "today"
+    }
+  },
+  {
+    "text": "what's on my calendar",
+    "intent": "query_tasks",
+    "entities": {}
+  },
+  {
+    "text": "show me today's schedule",
+    "intent": "query_tasks",
+    "entities": {}
+  },
+  {
+    "text": "list my tasks",
+    "intent": "query_tasks",
+    "entities": {}
+  },
+  {
+    "text": "show my schedule",
+    "intent": "query_tasks",
+    "entities": {}
+  },
+  {
+    "text": "what do I have today",
+    "intent": "query_tasks",
+    "entities": {}
+  },
+  {
+    "text": "what's on my calendar next monday",
+    "intent": "query_tasks",
+    "entities": {
+      "date": "monday"
+    }
+  },
+  {
+    "text": "what tasks do I have for wednesday",
+    "intent": "query_tasks",
+    "entities": {
+      "date": "wednesday"
+    }
+  },
+  {
+    "text": "what's on my calendar",
+    "intent": "query_tasks",
+    "entities": {}
+  },
+  {
+    "text": "show my upcoming tasks",
+    "intent": "query_tasks",
+    "entities": {}
+  },
+  {
+    "text": "show my upcoming tasks for monday",
+    "intent": "query_tasks",
+    "entities": {
+      "date": "monday"
+    }
+  },
+  {
+    "text": "what are my tasks",
+    "intent": "query_tasks",
+    "entities": {}
+  },
+  {
+    "text": "list my tasks on tomorrow",
+    "intent": "query_tasks",
+    "entities": {
+      "date": "tomorrow"
+    }
+  },
+  {
+    "text": "show me today's schedule on monday",
+    "intent": "query_tasks",
+    "entities": {
+      "date": "monday"
+    }
+  },
+  {
+    "text": "what tasks do I have this monday",
+    "intent": "query_tasks",
+    "entities": {
+      "date": "monday"
+    }
+  },
+  {
+    "text": "what are my tasks on tuesday",
+    "intent": "query_tasks",
+    "entities": {
+      "date": "tuesday"
+    }
+  },
+  {
+    "text": "good morning",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "good morning",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "good morning",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "good morning",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "hello",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "good morning",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "hello",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "hello",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "hello",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "good afternoon",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "hey",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "good morning",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "good afternoon",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "hello",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "good evening",
+    "intent": "greeting",
+    "entities": {}
+  },
+  {
+    "text": "thanks",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "thank you so much",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "thank you",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "appreciate it",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "thank you so much",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "appreciate it",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "thank you so much",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "appreciate it",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "appreciate it",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "thank you",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "thank you so much",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "appreciate it",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "appreciate it",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "appreciate it",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "thank you so much",
+    "intent": "thanks",
+    "entities": {}
+  },
+  {
+    "text": "what can you do",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "what can you do",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "help",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "what can you do",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "how does this work",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "help me",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "how does this work",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "how does this work",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "help",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "help me",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "what can you do",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "what can you do",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "how does this work",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "how does this work",
+    "intent": "help",
+    "entities": {}
+  },
+  {
+    "text": "what can you do",
+    "intent": "help",
+    "entities": {}
+  }
+]

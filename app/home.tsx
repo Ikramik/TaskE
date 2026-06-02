@@ -1,24 +1,28 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Dimensions, Animated,
-  Modal, Alert, AppState,
-} from "react-native";
-import { Link, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Circle } from "react-native-svg";
-import {
-  getTasks, Task, getTodaysSlots, recordSlot, SlotHistory,
-} from "../utils/storage";
-import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Link, useRouter } from "expo-router";
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  registerForPushNotificationsAsync, scheduleTaskReminder,
-} from "../utils/notifications";
+  Alert,
+  Animated,
+  AppState,
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Svg, { Circle } from "react-native-svg";
+import { auth } from '../services/firebase';
+import { registerForPushNotificationsAsync, scheduleTaskReminder, } from "../utils/notifications";
+import { getTasks, getTodaysSlots, recordSlot, SlotHistory, Task, } from "../utils/storage";
 
 const { width } = Dimensions.get("window");
 
-// Create animated circle component
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const CATEGORIES = [
   { id: 'work', label: 'Work', icon: 'briefcase-outline', color: '#2196F3' },
@@ -77,9 +81,7 @@ interface CircularProgressProps {
 }
 
 function CircularProgress({
-  progress,
-  totalslots,
-  completedslots,
+  progress, totalslots, completedslots,
 }: CircularProgressProps) {
   const animatedValue = useRef(new Animated.Value(0)).current;
   const size = width * 0.55;
@@ -94,7 +96,6 @@ function CircularProgress({
       useNativeDriver: true,
     }).start();
   }, [progress]);
-
   const strokeDashoffset = animatedValue.interpolate({
     inputRange: [0, 1],
     outputRange: [circumference, 0],
@@ -103,34 +104,16 @@ function CircularProgress({
   return (
     <View style={styles.progressContainer}>
       <View style={styles.progressTextContainer}>
-        <Text style={styles.progressPercentage}>
-          {Math.round(progress * 100)}%
-        </Text>
-        <Text style={styles.progressDetails}>
-          {completedslots} of {totalslots} tasks
-        </Text>
+        <Text style={styles.progressPercentage}> {Math.round(progress * 100)}% </Text>
+        <Text style={styles.progressDetails}> {completedslots} of {totalslots} tasks </Text>
       </View>
       <Svg width={size} height={size} style={styles.progressRing}>
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="rgba(255, 255, 255, 0.2)"
-          strokeWidth={strokeWidth}
-          fill="none"
-        />
-        <AnimatedCircle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="white"
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
+        <Circle cx={size / 2} cy={size / 2} r={radius}
+          stroke="rgba(255, 255, 255, 0.2)" strokeWidth={strokeWidth} fill="none" />
+        <AnimatedCircle cx={size / 2} cy={size / 2} r={radius}
+          stroke="white" strokeWidth={strokeWidth} fill="none"
+          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </Svg>
     </View>
   );
@@ -143,6 +126,33 @@ export default function HomeScreen() {
   const [todaystasks, setTodaystasks] = useState<Task[]>([]);
   const [completedslots, setCompletedslots] = useState(0);
   const [slotHistory, setSlotHistory] = useState<SlotHistory[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Auth state listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthChecked(true);
+      
+      // Only redirect if we're sure there's no user
+      if (!currentUser && authChecked) {
+        router.replace('/sign-in');
+      }
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  // Modify the profile button press
+  const handleProfilePress = () => {
+    if (user) {
+      router.push("/profile");
+    } else {
+      router.push("/sign-in");
+    }
+  };
+
   const getCategoryIcon = (category?: string) => {
     if (!category) return 'ellipse-outline';
     const cat = CATEGORIES.find(c => c.id === category);
@@ -160,6 +170,7 @@ export default function HomeScreen() {
     const prio = PRIORITIES.find(p => p.id === priority);
     return prio ? prio.color : '#666';
   };
+
   const loadtasks = useCallback(async () => {
     try {
       const [alltasks, todaysslots] = await Promise.all([
@@ -277,6 +288,15 @@ export default function HomeScreen() {
       ? completedslots / todaystasks.length
       : 0;
 
+  // Show loading while checking auth
+  if (!authChecked) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <LinearGradient colors={["#1a2d8e", "#142269"]} style={styles.header}>
@@ -287,14 +307,18 @@ export default function HomeScreen() {
             </View>
             <TouchableOpacity
               style={styles.profileButton}
-              onPress={() => router.push("/sign-in")}
+              onPress={handleProfilePress} // FIXED: Use handleProfilePress
             >
-              <Ionicons name="person-outline" size={24} color="white" />
+              <Ionicons 
+                name={user ? "person" : "person-outline"} 
+                size={24} 
+                color="white" 
+              />
             </TouchableOpacity>
           </View>
           <CircularProgress
             progress={progress}
-            totalslots={todaystasks.length }
+            totalslots={todaystasks.length}
             completedslots={completedslots}
           />
         </View>
@@ -381,7 +405,7 @@ export default function HomeScreen() {
                         {task.category && (
                           <View style={styles.categoryTag}>
                             <Ionicons
-                               name={getCategoryIcon(task.category) as keyof typeof Ionicons.glyphMap}
+                              name={getCategoryIcon(task.category) as keyof typeof Ionicons.glyphMap}
                               size={12}
                               color="#666"
                             />
@@ -827,4 +851,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'capitalize',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
 });

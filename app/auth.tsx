@@ -1,21 +1,18 @@
-import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image } from "react-native";
-import { useRouter } from "expo-router";
-import * as LocalAuthentication from "expo-local-authentication";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const { width } = Dimensions.get("window");
 
+import * as LocalAuthentication from "expo-local-authentication";
 export default function AuthScreen() {
   const router = useRouter();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasBiometrics, setHasBiometrics] = useState(false);
-
-  useEffect(() => {
-    checkBiometrics();
-  }, []);
+  useEffect(() => { checkBiometrics(); }, []);
 
   const checkBiometrics = async () => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -27,11 +24,9 @@ export default function AuthScreen() {
     try {
       setIsAuthenticating(true);
       setError(null);
-
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
       const hasBiometrics = await LocalAuthentication.isEnrolledAsync();
-
       const auth = await LocalAuthentication.authenticateAsync({
         promptMessage: hasHardware && hasBiometrics
           ? "Use Face ID or Touch ID"
@@ -40,7 +35,6 @@ export default function AuthScreen() {
         cancelLabel: "Cancel",
         disableDeviceFallback: false,
       });
-
       if (auth.success) {
         router.replace("/home");
       } else {
@@ -87,8 +81,8 @@ export default function AuthScreen() {
               {isAuthenticating
                 ? "Verifying..."
                 : hasBiometrics
-                ? "Authenticate"
-                : "Enter PIN"}
+                  ? "Authenticate"
+                  : "Enter PIN"}
             </Text>
           </TouchableOpacity>
 

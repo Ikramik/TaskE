@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "704978248429",
+    "project_id": "taske-f111d",
+    "storage_bucket": "taske-f111d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:704978248429:android:68d0f88da2c263704062e4",
+        "android_client_info": {
+          "package_name": "com.taske.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "704978248429-rlg8gk6sf0uk6lh0tgf2v03khrpjth6p.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCj6TQdwr8WCPYnIlNfzrbJR1k4sBqYWbI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "704978248429-rlg8gk6sf0uk6lh0tgf2v03khrpjth6p.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

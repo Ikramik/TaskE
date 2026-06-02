@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, Animated } from "react-native";
+// app/index.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
+import { Animated, StyleSheet, Text, View } from "react-native";
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function SplashScreen() {
           },
         ]}
       >
-        <Ionicons name="checkmark-done-circle-outline" size={150} color="#ffffffff" />
+        <Ionicons name="checkmark-done-circle-outline" size={150} color="#ffffff" />
         <Text style={styles.appName}>TaskE</Text>
       </Animated.View>
     </View>
@@ -65,4 +66,4 @@ const styles = StyleSheet.create({
     marginTop: 20,
     letterSpacing: 1,
   },
-})
+});

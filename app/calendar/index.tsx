@@ -1,11 +1,28 @@
-import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform,} from "react-native";
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import {  getTasks,  getSlotHistory,  recordSlot,  Task,  SlotHistory,
-} from "../../utils/storage";
 import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
+import {
+  Alert,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
+} from "react-native";
+import {
+  deleteTask,
+  getSlotHistory,
+  getTasks,
+  recordSlot,
+  SlotHistory,
+  Task,
+} from "../../utils/storage";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -14,19 +31,29 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [slotHistory, setSlotHistory] = useState<SlotHistory[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const loadData = useCallback(async () => {
     try {
+      console.log("Loading calendar data...");
       const [allTasks, history] = await Promise.all([
         getTasks(),
         getSlotHistory(),
       ]);
+      console.log(`Loaded ${allTasks.length} tasks and ${history.length} slot history entries`);
+      
       setTasks(allTasks);
       setSlotHistory(history);
     } catch (error) {
       console.error("Error loading calendar data:", error);
+    } finally {
+      setRefreshing(false);
     }
-  }, [selectedDate]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -42,30 +69,90 @@ export default function CalendarScreen() {
     return { days, firstDay };
   };
 
+  // FIXED: Better date normalization that matches slot history format
+  const normalizeDate = (date: Date | string): string => {
+    if (typeof date === 'string') {
+      // If it's already a string in YYYY-MM-DD format, return as is
+      return date.split('T')[0];
+    }
+    // Convert Date to YYYY-MM-DD format
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Check if a task should appear on a specific date
+  const taskOccursOnDate = (task: Task, date: Date): boolean => {
+    const taskStartTime = new Date(task.startTime);
+    const normalizedDate = normalizeDate(date);
+    const dayOfWeek = date.getDay().toString();
+
+    switch (task.frequency) {
+      case "once":
+        return normalizeDate(taskStartTime) === normalizedDate;
+      case "daily":
+        return true;
+      case "weekly":
+        return task.selectedDays.includes(dayOfWeek);
+      case "custom":
+        return task.selectedDays.includes(normalizedDate);
+      default:
+        return false;
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+
+    try {
+      setRefreshing(true);
+      await deleteTask(taskToDelete.id);
+      console.log(`Task "${taskToDelete.title}" deleted successfully`);
+      
+      setDeleteModalVisible(false);
+      setTaskToDelete(null);
+      await loadData();
+      
+      Alert.alert("Success", `Task "${taskToDelete.title}" has been deleted`);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      Alert.alert("Error", "Failed to delete task. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const showDeleteConfirmation = (task: Task) => {
+    setTaskToDelete(task);
+    setDeleteModalVisible(true);
+    setOptionsModalVisible(false);
+  };
+
+  const showOptionsModal = (task: Task) => {
+    setSelectedTask(task);
+    setOptionsModalVisible(true);
+  };
+
   const { days, firstDay } = getDaysInMonth(selectedDate);
 
   const renderCalendar = () => {
     const calendar: React.ReactElement[] = [];
     let week: React.ReactElement[] = [];
 
-    // Add empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
       week.push(<View key={`empty-${i}`} style={styles.calendarDay} />);
     }
 
-    // Add days of the month
     for (let day = 1; day <= days; day++) {
       const date = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth(),
         day
       );
-      const isToday = new Date().toDateString() === date.toDateString();
-      const hasTasks = slotHistory.some(
-        (slot) =>
-          new Date(slot.date).toDateString() === date.toDateString() &&
-          slot.timeSlots.length > 0
-      );
+      const isToday = normalizeDate(new Date()) === normalizeDate(date);
+
+      const hasTasks = tasks.some(task => taskOccursOnDate(task, date));
 
       week.push(
         <TouchableOpacity
@@ -73,7 +160,6 @@ export default function CalendarScreen() {
           style={[
             styles.calendarDay,
             isToday && styles.today,
-            hasTasks && styles.hasEvents,
           ]}
           onPress={() => setSelectedDate(date)}
         >
@@ -84,9 +170,9 @@ export default function CalendarScreen() {
         </TouchableOpacity>
       );
 
-      if ((firstDay + day) % 7 === 0 || day === days) {
+      if (week.length === 7) {
         calendar.push(
-          <View key={day} style={styles.calendarWeek}>
+          <View key={`week-${day}`} style={styles.calendarWeek}>
             {week}
           </View>
         );
@@ -94,33 +180,95 @@ export default function CalendarScreen() {
       }
     }
 
+    if (week.length > 0) {
+      while (week.length < 7) {
+        week.push(<View key={`empty-end-${week.length}`} style={styles.calendarDay} />);
+      }
+      calendar.push(
+        <View key="last-week" style={styles.calendarWeek}>
+          {week}
+        </View>
+      );
+    }
+
     return calendar;
   };
 
-  const renderTasksForDate = () => {
-    const dateStr = selectedDate.toDateString();
-    const daySlots = slotHistory.filter(
-      (slot) => new Date(slot.date).toDateString() === dateStr
-    );
-
-    // Filter tasks that should occur on this date
-    const dayTasks = tasks.filter((task) => {
-      const taskStartTime = new Date(task.startTime);
-      const taskDayOfWeek = taskStartTime.getDay().toString();
+  const handleCompleteTask = async (taskId: string) => {
+    try {
+      setRefreshing(true);
+      const currentDate = normalizeDate(selectedDate);
+      const currentTime = new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
       
-      switch (task.frequency) {
-        case "once":
-          return taskStartTime.toDateString() === dateStr;
-        case "daily":
-          return true;
-        case "weekly":
-          return task.selectedDays.includes(taskDayOfWeek);
-        case "custom":
-          return task.selectedDays.includes(taskDayOfWeek);
-        default:
-          return false;
+      console.log(`Recording slot for task ${taskId} on ${currentDate} at ${currentTime}`);
+      
+      await recordSlot(taskId, currentDate, [currentTime]);
+      
+      await loadData();
+      
+      console.log(`Successfully recorded completion for task ${taskId}`);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      Alert.alert("Error", "Failed to mark task as complete");
+    }
+  };
+
+  // FIXED: Proper completion detection that matches slot history format
+  const isTaskCompleted = (taskId: string, date: Date): boolean => {
+    const normalizedDate = normalizeDate(date);
+    
+    console.log(`Checking completion for task ${taskId} on ${normalizedDate}`);
+    
+    // Find ALL slot history entries for this task and date
+    const daySlots = slotHistory.filter(
+      (slot) => {
+        const slotDateNormalized = normalizeDate(slot.date);
+        const matches = slot.taskId === taskId && slotDateNormalized === normalizedDate;
+        
+        if (matches) {
+          console.log(`✓ Found matching slot:`, {
+            slotTaskId: slot.taskId,
+            slotDate: slot.date,
+            normalizedSlotDate: slotDateNormalized,
+            targetDate: normalizedDate,
+            timeSlots: slot.timeSlots,
+            hasTimeSlots: slot.timeSlots.length > 0
+          });
+        }
+        
+        return matches;
       }
+    );
+    
+    // Check if any of the matching slots have time slots
+    const hasCompletedSlots = daySlots.some(slot => slot.timeSlots && slot.timeSlots.length > 0);
+    
+    console.log(`Completion result for task ${taskId}:`, {
+      normalizedDate,
+      matchingSlotsCount: daySlots.length,
+      hasCompletedSlots,
+      allMatchingSlots: daySlots.map(slot => ({
+        date: slot.date,
+        timeSlots: slot.timeSlots
+      }))
     });
+    
+    return hasCompletedSlots;
+  };
+
+  const renderTasksForDate = () => {
+    const normalizedSelectedDate = normalizeDate(selectedDate);
+    
+    console.log(`\n=== Rendering tasks for: ${normalizedSelectedDate} ===`);
+    console.log(`Total tasks: ${tasks.length}, Slot history entries: ${slotHistory.length}`);
+
+    const dayTasks = tasks.filter(task => taskOccursOnDate(task, selectedDate));
+
+    console.log(`Filtered tasks for date: ${dayTasks.length}`);
 
     if (dayTasks.length === 0) {
       return (
@@ -132,9 +280,9 @@ export default function CalendarScreen() {
     }
 
     return dayTasks.map((task) => {
-      const completed = daySlots.some(
-        (slot) => slot.taskId === task.id && slot.timeSlots.length > 0
-      );
+      const completed = isTaskCompleted(task.id, selectedDate);
+
+      console.log(`Rendering task "${task.title}": completed = ${completed}`);
 
       return (
         <View key={task.id} style={styles.medicationCard}>
@@ -145,7 +293,15 @@ export default function CalendarScreen() {
             ]}
           />
           <View style={styles.medicationInfo}>
-            <Text style={styles.medicationName}>{task.title}</Text>
+            <View style={styles.taskHeader}>
+              <Text style={styles.medicationName}>{task.title}</Text>
+              <TouchableOpacity 
+                style={styles.deleteIconButton}
+                onPress={() => showOptionsModal(task)}
+              >
+                <Ionicons name="ellipsis-vertical" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.medicationDosage}>{task.description}</Text>
             <Text style={styles.medicationTime}>
               {new Date(task.startTime).toLocaleTimeString([], {
@@ -153,6 +309,12 @@ export default function CalendarScreen() {
                 minute: '2-digit',
                 hour12: true
               })}
+            </Text>
+            <Text style={styles.medicationFrequency}>
+              Frequency: {task.frequency}
+            </Text>
+            <Text style={[styles.completionStatus, completed ? styles.completedText : styles.pendingText]}>
+              Status: {completed ? 'Completed' : 'Pending'}
             </Text>
           </View>
           {completed ? (
@@ -166,17 +328,12 @@ export default function CalendarScreen() {
                 styles.takeDoseButton,
                 { backgroundColor: task.color },
               ]}
-              onPress={async () => {
-                const currentTime = new Date().toLocaleTimeString('en-US', {
-                  hour12: false,
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-                await recordSlot(task.id, selectedDate.toISOString().split('T')[0], [currentTime]);
-                loadData();
-              }}
+              onPress={() => handleCompleteTask(task.id)}
+              disabled={refreshing}
             >
-              <Text style={styles.takeDoseText}>Complete</Text>
+              <Text style={styles.takeDoseText}>
+                {refreshing ? '...' : 'Complete'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -184,19 +341,107 @@ export default function CalendarScreen() {
     });
   };
 
-  // Helper function to format duration
-  const formatDuration = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    
-    if (hours > 0 && mins > 0) {
-      return `${hours}h ${mins}m`;
-    } else if (hours > 0) {
-      return `${hours} hour${hours > 1 ? 's' : ''}`;
-    } else {
-      return `${mins} minute${mins > 1 ? 's' : ''}`;
-    }
-  };
+  // Delete Confirmation Modal
+  const renderDeleteModal = () => (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={deleteModalVisible}
+      onRequestClose={() => setDeleteModalVisible(false)}
+    >
+      <TouchableWithoutFeedback onPress={() => setDeleteModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.deleteModalContent}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="warning" size={32} color="#FF6B6B" />
+                <Text style={styles.deleteModalTitle}>Delete Task</Text>
+              </View>
+              
+              <Text style={styles.deleteModalText}>
+                Are you sure you want to delete "{taskToDelete?.title}"? This action cannot be undone.
+              </Text>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setDeleteModalVisible(false)}
+                  disabled={refreshing}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.deleteButton]}
+                  onPress={handleDeleteTask}
+                  disabled={refreshing}
+                >
+                  {refreshing ? (
+                    <Text style={styles.deleteButtonText}>Deleting...</Text>
+                  ) : (
+                    <>
+                      <Ionicons name="trash-outline" size={18} color="white" />
+                      <Text style={styles.deleteButtonText}>Delete</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+
+  // Options Modal
+  const renderOptionsModal = () => (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={optionsModalVisible}
+      onRequestClose={() => setOptionsModalVisible(false)}
+    >
+      <TouchableWithoutFeedback onPress={() => setOptionsModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.optionsModalContent}>
+              <Text style={styles.optionsModalTitle}>Task Options</Text>
+              
+              <TouchableOpacity
+                style={styles.optionButton}
+                onPress={() => {
+                  setOptionsModalVisible(false);
+                  Alert.alert("Edit", "Edit functionality would go here");
+                }}
+              >
+                <Ionicons name="create-outline" size={20} color="#1a2d8e" />
+                <Text style={styles.optionButtonText}>Edit Task</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.optionButton, styles.deleteOptionButton]}
+                onPress={() => {
+                  if (selectedTask) {
+                    showDeleteConfirmation(selectedTask);
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                <Text style={[styles.optionButtonText, styles.deleteOptionText]}>Delete Task</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.cancelOptionButton}
+                onPress={() => setOptionsModalVisible(false)}
+              >
+                <Text style={styles.cancelOptionText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
 
   return (
     <View style={styles.container}>
@@ -273,15 +518,26 @@ export default function CalendarScreen() {
               day: "numeric",
             })}
           </Text>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={loadData}
+                colors={["#1a2d8e"]}
+              />
+            }
+          >
             {renderTasksForDate()}
           </ScrollView>
         </View>
       </View>
+
+      {renderDeleteModal()}
+      {renderOptionsModal()}
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -367,6 +623,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 8,
+    position: 'relative',
   },
   dayText: {
     fontSize: 16,
@@ -376,19 +633,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a2d8e",
   },
   todayText: {
-    color: "#ffffffff",
+    color: "#ffffff",
     fontWeight: "600",
   },
-  hasEvents: {
-    position: "relative",
-  },
   eventDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: "#1a2d8e",
     position: "absolute",
-    bottom: "15%",
+    bottom: 8,
   },
   scheduleContainer: {
     flex: 1,
@@ -432,11 +686,21 @@ const styles = StyleSheet.create({
   medicationInfo: {
     flex: 1,
   },
+  taskHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 4,
+  },
   medicationName: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 4,
+    flex: 1,
+    marginRight: 8,
+  },
+  deleteIconButton: {
+    padding: 4,
   },
   medicationDosage: {
     fontSize: 14,
@@ -446,11 +710,30 @@ const styles = StyleSheet.create({
   medicationTime: {
     fontSize: 14,
     color: "#666",
+    marginBottom: 2,
+  },
+  medicationFrequency: {
+    fontSize: 12,
+    color: "#888",
+    fontStyle: 'italic',
+  },
+  completionStatus: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  completedText: {
+    color: '#4C50AF',
+  },
+  pendingText: {
+    color: '#666',
   },
   takeDoseButton: {
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 12,
+    minWidth: 80,
+    alignItems: 'center',
   },
   takeDoseText: {
     color: "white",
@@ -480,5 +763,120 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 10,
     textAlign: "center",
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  deleteModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  optionsModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 8,
+  },
+  optionsModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  deleteModalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  deleteButton: {
+    backgroundColor: '#FF6B6B',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#f8f9fa',
+  },
+  deleteOptionButton: {
+    backgroundColor: '#FFF5F5',
+  },
+  optionButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1a2d8e',
+    marginLeft: 12,
+  },
+  deleteOptionText: {
+    color: '#FF6B6B',
+  },
+  cancelOptionButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: '#f8f9fa',
+  },
+  cancelOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666',
   },
 });

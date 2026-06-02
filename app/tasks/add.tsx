@@ -1,18 +1,15 @@
-import { useState } from "react";
-import {
-    View, Text, StyleSheet, TextInput, TouchableOpacity,
-    ScrollView, Switch, Dimensions, Platform, KeyboardAvoidingView,
-    Alert, Modal
-} from "react-native";
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Alert, Dimensions, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Calendar } from 'react-native-calendars';
+import { scheduleTaskReminder } from "../../utils/notifications";
 import { addTask } from "../../utils/storage";
-import { scheduleTaskReminder, scheduleRefillReminder } from "../../utils/notifications";
 
 const { width } = Dimensions.get("window");
+
 const PRIORITIES = [
     { id: 'low', label: 'Low', color: '#4CAF50' },
     { id: 'medium', label: 'Medium', color: '#FF9800' },
@@ -25,16 +22,6 @@ const CATEGORIES = [
     { id: 'health', label: 'Health', icon: 'fitness-outline', color: '#FF9800' },
     { id: 'study', label: 'Study', icon: 'school-outline', color: '#9C27B0' },
 ];
-const DAYS_OF_WEEK = [
-    { id: "0", label: "Sun", fullName: "Sunday" },
-    { id: "1", label: "Mon", fullName: "Monday" },
-    { id: "2", label: "Tue", fullName: "Tuesday" },
-    { id: "3", label: "Wed", fullName: "Wednesday" },
-    { id: "4", label: "Thu", fullName: "Thursday" },
-    { id: "5", label: "Fri", fullName: "Friday" },
-    { id: "6", label: "Sat", fullName: "Saturday" },
-];
-
 const DURATION_OPTIONS = [
     { id: "15min", label: "15 min", value: 15, type: "minutes" },
     { id: "30min", label: "30 min", value: 30, type: "minutes" },
@@ -44,11 +31,28 @@ const DURATION_OPTIONS = [
     { id: "4hours", label: "4 hours", value: 240, type: "minutes" },
     { id: "custom", label: "Custom", value: 0, type: "custom" },
 ];
+const WEEKDAYS = [
+    { id: '0', label: 'Sunday', short: 'Sun' },
+    { id: '1', label: 'Monday', short: 'Mon' },
+    { id: '2', label: 'Tuesday', short: 'Tue' },
+    { id: '3', label: 'Wednesday', short: 'Wed' },
+    { id: '4', label: 'Thursday', short: 'Thu' },
+    { id: '5', label: 'Friday', short: 'Fri' },
+    { id: '6', label: 'Saturday', short: 'Sat' },
+];
+type MarkedDates = {
+    [date: string]: {
+        selected?: boolean;
+        selectedColor?: string;
+    };
+};
 
 export default function AddTaskScreen() {
+    const [selectedDates, setSelectedDates] = useState<MarkedDates>({});
     const [category, setCategory] = useState('personal');
     const [priority, setPriority] = useState('medium');
     const router = useRouter();
+    const [showWeekdayPicker, setShowWeekdayPicker] = useState(false);
     const [form, setForm] = useState({
         title: "",
         description: "",
@@ -58,13 +62,10 @@ export default function AddTaskScreen() {
         durationType: "preset",
         customHours: "0",
         customMinutes: "30",
-        startTime: new Date(), // Default to current time
+        startTime: new Date(),
         showTimePicker: false,
         reminderEnabled: true,
     });
-
-    const [showDayPicker, setShowDayPicker] = useState(false);
-    const [showCustomDuration, setShowCustomDuration] = useState(false);
     const FREQUENCY_OPTIONS = [
         {
             id: "once",
@@ -91,9 +92,25 @@ export default function AddTaskScreen() {
             description: "Choose specific days"
         }
     ];
+    const [showDayPicker, setShowDayPicker] = useState(false);
+    const [showCustomDuration, setShowCustomDuration] = useState(false);
 
     const [selectedFrequency, setSelectedFrequency] = useState("");
+    
+    const handleWeekdaySelect = (dayId: string) => {
+        setForm(prev => {
+            const currentDays = [...prev.selectedDays];
+            const dayIndex = currentDays.indexOf(dayId);
 
+            if (dayIndex > -1) {
+                currentDays.splice(dayIndex, 1);
+            } else {
+                currentDays.push(dayId);
+            }
+
+            return { ...prev, selectedDays: currentDays };
+        });
+    };
     const handleFrequencySelect = (frequencyId: string) => {
         setSelectedFrequency(frequencyId);
         setForm(prev => ({
@@ -101,8 +118,83 @@ export default function AddTaskScreen() {
             frequency: frequencyId,
             selectedDays: frequencyId === "custom" ? prev.selectedDays : []
         }));
+        if (frequencyId === "weekly") {
+            setShowWeekdayPicker(true);
+        } else if (frequencyId === "custom") {
+            setShowDayPicker(true);
+        }
     };
+    const renderWeekdayPicker = () => (
+        <View style={styles.weekdayPickerContainer}>
+            <Text style={styles.weekdayPickerTitle}>Select Days of the Week</Text>
+            <Text style={styles.weekdayPickerSubtitle}>
+                Task will repeat weekly on selected days
+            </Text>
 
+            <View style={styles.weekdayGrid}>
+                {WEEKDAYS.map((day) => (
+                    <TouchableOpacity
+                        key={day.id}
+                        style={[
+                            styles.weekdayButton,
+                            form.selectedDays.includes(day.id) && styles.selectedWeekdayButton
+                        ]}
+                        onPress={() => handleWeekdaySelect(day.id)}
+                    >
+                        <Text style={[
+                            styles.weekdayLabel,
+                            form.selectedDays.includes(day.id) && styles.selectedWeekdayLabel
+                        ]}>
+                            {day.short}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            <View style={styles.selectedDaysPreview}>
+                <Text style={styles.selectedDaysText}>
+                    {form.selectedDays.length === 0
+                        ? "No days selected"
+                        : `Selected: ${form.selectedDays.map(dayId =>
+                            WEEKDAYS.find(d => d.id === dayId)?.short
+                        ).join(', ')}`
+                    }
+                </Text>
+            </View>
+
+            <View style={styles.weekdayPickerActions}>
+                <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => {
+                        // Clear selection if no days selected
+                        if (form.selectedDays.length === 0) {
+                            setSelectedFrequency("");
+                            setForm(prev => ({ ...prev, frequency: "" }));
+                        }
+                        setShowWeekdayPicker(false);
+                    }}
+                >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.confirmButton,
+                        form.selectedDays.length === 0 && styles.confirmButtonDisabled
+                    ]}
+                    onPress={() => {
+                        if (form.selectedDays.length > 0) {
+                            setShowWeekdayPicker(false);
+                        }
+                    }}
+                    disabled={form.selectedDays.length === 0}
+                >
+                    <Text style={styles.confirmButtonText}>
+                        Confirm ({form.selectedDays.length})
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
     const handleDurationSelect = (durationOption: typeof DURATION_OPTIONS[0]) => {
         if (durationOption.id === "custom") {
             setShowCustomDuration(true);
@@ -113,15 +205,6 @@ export default function AddTaskScreen() {
                 durationType: "preset"
             }));
         }
-    };
-
-    const toggleDaySelection = (dayId: string) => {
-        setForm(prev => ({
-            ...prev,
-            selectedDays: prev.selectedDays.includes(dayId)
-                ? prev.selectedDays.filter(id => id !== dayId)
-                : [...prev.selectedDays, dayId]
-        }));
     };
 
     const saveCustomDuration = () => {
@@ -187,6 +270,8 @@ export default function AddTaskScreen() {
                 description: form.description,
                 frequency: form.frequency as "once" | "daily" | "weekly" | "custom",
                 selectedDays: form.selectedDays,
+                // Add this to distinguish between weekly and custom:
+                isCustomDates: form.frequency === "custom", // New field
                 duration: form.duration,
                 startTime: form.startTime.toISOString(),
                 completed: false,
@@ -288,50 +373,80 @@ export default function AddTaskScreen() {
         );
     };
 
-    const renderDayPicker = () => (
-        <View style={styles.dayPickerContainer}>
-            <Text style={styles.dayPickerTitle}>Select Days</Text>
-            <View style={styles.daysGrid}>
-                {DAYS_OF_WEEK.map((day) => (
-                    <TouchableOpacity
-                        key={day.id}
-                        style={[
-                            styles.dayButton,
-                            form.selectedDays.includes(day.id) && styles.selectedDayButton
-                        ]}
-                        onPress={() => toggleDaySelection(day.id)}
-                    >
-                        <Text style={[
-                            styles.dayButtonText,
-                            form.selectedDays.includes(day.id) && styles.selectedDayButtonText
-                        ]}>
-                            {day.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+    const renderCalendarPicker = () => (
+        <View style={styles.calendarContainer}>
+            <Text style={styles.calendarTitle}>Select Days</Text>
+
+            <Calendar
+                onDayPress={(day) => {
+                    const dateString = day.dateString;
+                    setSelectedDates(prev => {
+                        const newSelected = { ...prev };
+                        if (newSelected[dateString]) {
+                            delete newSelected[dateString];
+                        } else {
+                            newSelected[dateString] = { selected: true, selectedColor: '#1a2d8e' };
+                        }
+                        return newSelected;
+                    });
+                }}
+                markedDates={selectedDates}
+                markingType={'multi-dot'}
+                theme={{
+                    backgroundColor: '#ffffff',
+                    calendarBackground: '#ffffff',
+                    selectedDayBackgroundColor: '#1a2d8e',
+                    selectedDayTextColor: '#ffffff',
+                    todayTextColor: '#1a2d8e',
+                    dayTextColor: '#2d4150',
+                    textDisabledColor: '#d9e1e8',
+                    dotColor: '#1a2d8e',
+                    selectedDotColor: '#ffffff',
+                    arrowColor: '#1a2d8e',
+                    monthTextColor: '#1a2d8e',
+                    textDayFontWeight: '300',
+                    textMonthFontWeight: 'bold',
+                    textDayHeaderFontWeight: '300',
+                    textDayFontSize: 16,
+                    textMonthFontSize: 16,
+                    textDayHeaderFontSize: 14
+                }}
+            />
+
+            <View style={styles.selectedDatesContainer}>
+                <Text style={styles.selectedDatesLabel}>
+                    Selected: {Object.keys(selectedDates).length} day(s)
+                </Text>
             </View>
 
-            {form.selectedDays.length > 0 && (
-                <View style={styles.selectedDaysContainer}>
-                    <Text style={styles.selectedDaysLabel}>Selected:</Text>
-                    <Text style={styles.selectedDaysText}>
-                        {form.selectedDays
-                            .map(dayId => DAYS_OF_WEEK.find(d => d.id === dayId)?.fullName)
-                            .join(", ")}
-                    </Text>
-                </View>
-            )}
-
-            <View style={styles.dayPickerActions}>
+            <View style={styles.calendarActions}>
                 <TouchableOpacity
                     style={styles.cancelButton}
-                    onPress={() => setShowDayPicker(false)}
+                    onPress={() => {
+                        const selectedDateStrings = Object.keys(selectedDates);
+
+                        setForm(prev => ({
+                            ...prev,
+                            selectedDays: selectedDateStrings  // Store actual dates like "2024-01-30"
+                        }));
+                        setShowDayPicker(false);
+                        //setSelectedDates({});
+                        //setShowDayPicker(false);
+                    }}
                 >
                     <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={styles.confirmButton}
-                    onPress={() => setShowDayPicker(false)}
+                    onPress={() => {
+                        const selectedDateStrings = Object.keys(selectedDates);
+
+                        setForm(prev => ({
+                            ...prev,
+                            selectedDays: selectedDateStrings
+                        }));
+                        setShowDayPicker(false);
+                    }}
                 >
                     <Text style={styles.confirmButtonText}>Confirm</Text>
                 </TouchableOpacity>
@@ -401,12 +516,18 @@ export default function AddTaskScreen() {
             case "daily":
                 return "Every day";
             case "weekly":
-                return "Weekly on selected days";
+                if (form.selectedDays.length === 0) {
+                    return "Select days of the week";
+                }
+                const dayNames = form.selectedDays.map(dayId =>
+                    WEEKDAYS.find(d => d.id === dayId)?.short
+                ).join(', ');
+                return `Weekly on ${dayNames}`;
             case "custom":
                 if (form.selectedDays.length === 0) {
                     return "Select custom days";
                 }
-                return `${form.selectedDays.length} day(s) selected`;
+                return `${form.selectedDays.length} day(s) selected on calendar`;
             default:
                 return "Select frequency";
         }
@@ -491,6 +612,8 @@ export default function AddTaskScreen() {
                                 onPress={() => {
                                     if (form.frequency === "custom") {
                                         setShowDayPicker(true);
+                                    } else if (form.frequency === "weekly") {
+                                        setShowWeekdayPicker(true);
                                     }
                                 }}
                             >
@@ -512,12 +635,23 @@ export default function AddTaskScreen() {
                             >
                                 <View style={styles.modalOverlay}>
                                     <View style={styles.modalContent}>
-                                        {renderDayPicker()}
+                                        {renderCalendarPicker()}
                                     </View>
                                 </View>
                             </Modal>
                         </View>
-
+                        <Modal
+                            visible={showWeekdayPicker}
+                            animationType="slide"
+                            transparent={true}
+                            onRequestClose={() => setShowWeekdayPicker(false)}
+                        >
+                            <View style={styles.modalOverlay}>
+                                <View style={styles.modalContent}>
+                                    {renderWeekdayPicker()}
+                                </View>
+                            </View>
+                        </Modal>
                         {/* Duration Selection */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>How long will it take?</Text>
@@ -848,7 +982,7 @@ const styles = StyleSheet.create({
         color: "#333",
     },
     selectedDurationNumber: {
-        color: "#fff",
+        color: "#fffefeff",
     },
     durationUnit: {
         fontSize: 12,
@@ -1173,5 +1307,96 @@ const styles = StyleSheet.create({
     selectedPriorityLabel: {
         color: "white",
         fontWeight: "700",
+    },
+    calendarContainer: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 16,
+    },
+    calendarTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 16,
+        textAlign: 'center',
+        color: '#1a2d8e',
+    },
+    selectedDatesContainer: {
+        marginTop: 16,
+        padding: 12,
+        backgroundColor: '#f8f9ff',
+        borderRadius: 8,
+    },
+    selectedDatesLabel: {
+        fontSize: 14,
+        color: '#1a2d8e',
+        textAlign: 'center',
+    },
+    calendarActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 16,
+    },
+    weekdayPickerContainer: {
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 24,
+        width: '90%',
+        maxWidth: 400,
+    },
+    weekdayPickerTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#333',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    weekdayPickerSubtitle: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    weekdayGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    weekdayButton: {
+        width: '30%',
+        aspectRatio: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    selectedWeekdayButton: {
+        backgroundColor: '#1a2d8e',
+        borderColor: '#1a2d8e',
+    },
+    weekdayLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#666',
+    },
+    selectedWeekdayLabel: {
+        color: 'white',
+    },
+    selectedDaysPreview: {
+        backgroundColor: '#f8f9fa',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    weekdayPickerActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 12,
+    },
+    confirmButtonDisabled: {
+        backgroundColor: '#ccc',
     },
 });

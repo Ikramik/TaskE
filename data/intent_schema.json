@@ -1,0 +1,83 @@
+{
+  "intents": [
+    {
+      "tag": "add_task",
+      "patterns": [
+        "add meeting at 3pm",
+        "schedule gym session for 1 hour",
+        "create task for tomorrow",
+        "remind me to buy groceries",
+        "add dentist appointment on friday",
+        "schedule team meeting for 30 minutes",
+        "create study session at 2pm tomorrow",
+        "add workout for 1 hour",
+        "schedule call with client",
+        "remind me to finish report",
+        "add presentation practice",
+        "create task for laundry today",
+        "schedule doctor appointment",
+        "add coding session for 2 hours",
+        "remind me to call mom"
+      ],
+      "responses": ["I'll help you add that task"],
+      "required_entities": ["task_title"],
+      "optional_entities": ["time", "duration", "date", "priority", "category"]
+    },
+    {
+      "tag": "query_tasks",
+      "patterns": [
+        "what are my tasks",
+        "show my schedule",
+        "what do I have today",
+        "list my tasks",
+        "what's on my calendar",
+        "show me today's schedule",
+        "what tasks do I have",
+        "view my tasks for today",
+        "what's planned for today",
+        "show my upcoming tasks"
+      ],
+      "responses": ["Let me check your tasks..."],
+      "required_entities": [],
+      "optional_entities": ["date"]
+    },
+    {
+      "tag": "greeting",
+      "patterns": [
+        "hello",
+        "hi",
+        "hey",
+        "good morning",
+        "good afternoon",
+        "good evening"
+      ],
+      "responses": ["Hello! I'm TaskE assistant. How can I help with your tasks today?"],
+      "required_entities": [],
+      "optional_entities": []
+    },
+    {
+      "tag": "thanks",
+      "patterns": [
+        "thanks",
+        "thank you",
+        "appreciate it",
+        "thank you so much"
+      ],
+      "responses": ["You're welcome! Is there anything else you'd like me to do?"],
+      "required_entities": [],
+      "optional_entities": []
+    },
+    {
+      "tag": "help",
+      "patterns": [
+        "help",
+        "what can you do",
+        "how does this work",
+        "help me"
+      ],
+      "responses": ["I can help you add tasks, check your schedule, or answer questions. Try saying: 'Add meeting at 2 PM' or 'What's on my schedule today?'"],
+      "required_entities": [],
+      "optional_entities": []
+    }
+  ]
+}

@@ -1,54 +1,95 @@
-import React, { useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Platform,
-  Alert,
-} from "react-native";
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
+} from "react-native";
+import {
+  deleteTask,
+  getSlotHistory,
   getTasks,
+  recordSlot,
   Task,
   updateTask,
 } from "../../utils/storage";
-import { scheduleRefillReminder } from "../../utils/notifications";
 
 export default function RefillTrackerScreen() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [slotHistory, setSlotHistory] = useState<any[]>([]);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
-  const loadTasks = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const allTasks = await getTasks();
+      const [allTasks, history] = await Promise.all([
+        getTasks(),
+        getSlotHistory(),
+      ]);
       setTasks(allTasks);
+      setSlotHistory(history);
     } catch (error) {
-      console.error("Error loading tasks:", error);
+      console.error("Error loading data:", error);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadTasks();
-    }, [loadTasks])
+      loadData();
+    }, [loadData])
   );
 
-  const handleRefill = async (task: Task) => {
+  // Check if task is completed based on slot history
+  const isTaskCompleted = (taskId: string): boolean => {
+    const today = new Date();
+    const normalizedDate = normalizeDate(today);
+    
+    const daySlots = slotHistory.filter(
+      (slot) => normalizeDate(slot.date) === normalizedDate && slot.taskId === taskId
+    );
+    
+    return daySlots.some(slot => slot.timeSlots && slot.timeSlots.length > 0);
+  };
+
+  // Date normalization function
+  const normalizeDate = (date: Date | string): string => {
+    if (typeof date === 'string') {
+      return date.split('T')[0];
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleCompleteTask = async (task: Task) => {
     try {
-      // For tasks, we'll track completion status instead of "refill"
+      const currentDate = normalizeDate(new Date());
+      const currentTime = new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      await recordSlot(task.id, currentDate, [currentTime]);
+      
       const updatedTask = {
         ...task,
         completed: true,
         lastCompleted: new Date().toISOString(),
       };
-
       await updateTask(updatedTask);
-      await loadTasks();
+      
+      await loadData();
 
       Alert.alert(
         "Task Completed",
@@ -60,18 +101,101 @@ export default function RefillTrackerScreen() {
     }
   };
 
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+
+    try {
+      await deleteTask(taskToDelete.id);
+      setDeleteModalVisible(false);
+      setTaskToDelete(null);
+      await loadData();
+      
+      Alert.alert("Success", `Task "${taskToDelete.title}" has been deleted`);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      Alert.alert("Error", "Failed to delete task. Please try again.");
+    }
+  };
+
+  const showDeleteConfirmation = (task: Task) => {
+    setTaskToDelete(task);
+    setDeleteModalVisible(true);
+  };
+
+  // Check if task is scheduled for a specific date
+  const isTaskScheduledForDate = (task: Task, date: Date): boolean => {
+    const normalizedDate = normalizeDate(date);
+    const dayOfWeek = date.getDay().toString();
+
+    switch (task.frequency) {
+      case "daily":
+        return true;
+      case "weekly":
+        return task.selectedDays.includes(dayOfWeek);
+      case "custom":
+        return task.selectedDays.includes(normalizedDate);
+      case "once":
+        return normalizeDate(new Date(task.startTime)) === normalizedDate;
+      default:
+        return false;
+    }
+  };
+
+  // Improved task status logic
   const getTaskStatus = (task: Task) => {
-    if (task.completed) {
+    const completed = isTaskCompleted(task.id) || task.completed;
+    
+    if (completed) {
       return {
         status: "Completed",
         color: "#4CAF50",
         backgroundColor: "#E8F5E9",
       };
-    } else {
-      const now = new Date();
-      const taskDate = new Date(task.startTime);
+    }
+
+    const now = new Date();
+    const today = new Date();
+    const normalizedToday = normalizeDate(today);
+    const taskDateTime = new Date(task.startTime);
+
+    // For one-time tasks
+    if (task.frequency === "once") {
+      if (taskDateTime < now) {
+        return {
+          status: "Overdue",
+          color: "#F44336",
+          backgroundColor: "#FFEBEE",
+        };
+      } else if (normalizeDate(taskDateTime) === normalizedToday) {
+        return {
+          status: "Pending",
+          color: "#FF9800",
+          backgroundColor: "#FFF3E0",
+        };
+      } else {
+        return {
+          status: "Upcoming",
+          color: "#2196F3",
+          backgroundColor: "#E3F2FD",
+        };
+      }
+    }
+
+    // For recurring tasks
+    const isScheduledToday = isTaskScheduledForDate(task, today);
+    
+    if (isScheduledToday) {
+      const taskTime = new Date(task.startTime);
+      const scheduledTimeToday = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        taskTime.getHours(),
+        taskTime.getMinutes(),
+        taskTime.getSeconds()
+      );
       
-      if (taskDate < now) {
+      if (scheduledTimeToday < now) {
         return {
           status: "Overdue",
           color: "#F44336",
@@ -84,14 +208,128 @@ export default function RefillTrackerScreen() {
           backgroundColor: "#FFF3E0",
         };
       }
+    } else {
+      // Check if there are any missed occurrences for recurring tasks
+      if (hasMissedScheduledDates(task)) {
+        return {
+          status: "Overdue",
+          color: "#F44336",
+          backgroundColor: "#FFEBEE",
+        };
+      } else {
+        return {
+          status: "Upcoming",
+          color: "#2196F3",
+          backgroundColor: "#E3F2FD",
+        };
+      }
+    }
+  };
+
+  // Check for missed scheduled dates
+  const hasMissedScheduledDates = (task: Task): boolean => {
+    const today = new Date();
+    const normalizedToday = normalizeDate(today);
+
+    switch (task.frequency) {
+      case "daily":
+        // Daily tasks are always scheduled, so if not completed and time passed, it's overdue
+        const taskTime = new Date(task.startTime);
+        const scheduledTimeToday = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+          taskTime.getHours(),
+          taskTime.getMinutes(),
+          taskTime.getSeconds()
+        );
+        return scheduledTimeToday < new Date();
+
+      case "weekly":
+        // Check if any scheduled day earlier in the week has passed
+        const currentDayOfWeek = today.getDay();
+        const pastScheduledDays = task.selectedDays
+          .map(day => parseInt(day))
+          .filter(day => day < currentDayOfWeek);
+        return pastScheduledDays.length > 0;
+
+      case "custom":
+        // Check if any custom date has passed
+        const pastCustomDates = task.selectedDays.filter(date => {
+          const scheduledDate = new Date(date);
+          return scheduledDate < today && normalizeDate(scheduledDate) !== normalizedToday;
+        });
+        return pastCustomDates.length > 0;
+
+      default:
+        return false;
     }
   };
 
   const getProgressPercentage = (task: Task) => {
-    // For tasks, progress could be based on completion status
-    // or you could add a progress field to your Task type
-    return task.completed ? 100 : 0;
+    const completed = isTaskCompleted(task.id) || task.completed;
+    return completed ? 100 : 0;
   };
+
+  const getLastCompletedDate = (task: Task): string | null => {
+    const taskSlots = slotHistory
+      .filter(slot => slot.taskId === task.id && slot.timeSlots.length > 0)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    if (taskSlots.length > 0) {
+      return new Date(taskSlots[0].date).toLocaleDateString();
+    }
+    
+    if (task.lastCompleted) {
+      return new Date(task.lastCompleted).toLocaleDateString();
+    }
+    
+    return null;
+  };
+
+  // Delete Confirmation Modal
+  const renderDeleteModal = () => (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={deleteModalVisible}
+      onRequestClose={() => setDeleteModalVisible(false)}
+    >
+      <TouchableWithoutFeedback onPress={() => setDeleteModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.deleteModalContent}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="warning" size={32} color="#FF6B6B" />
+                <Text style={styles.deleteModalTitle}>Delete Task</Text>
+              </View>
+              
+              <Text style={styles.deleteModalText}>
+                Are you sure you want to delete "{taskToDelete?.title}"? This action cannot be undone.
+              </Text>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setDeleteModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.deleteButton]}
+                  onPress={handleDeleteTask}
+                >
+                  <Ionicons name="trash-outline" size={18} color="white" />
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
 
   return (
     <View style={styles.container}>
@@ -132,6 +370,8 @@ export default function RefillTrackerScreen() {
             tasks.map((task) => {
               const taskStatus = getTaskStatus(task);
               const progressPercentage = getProgressPercentage(task);
+              const lastCompleted = getLastCompletedDate(task);
+              const isCompleted = isTaskCompleted(task.id) || task.completed;
 
               return (
                 <View key={task.id} style={styles.taskCard}>
@@ -197,35 +437,46 @@ export default function RefillTrackerScreen() {
                       <Text style={styles.frequencyLabel}>
                         Frequency: {task.frequency || "Once"}
                       </Text>
-                      {task.completed && (
+                      {lastCompleted && (
                         <Text style={styles.lastCompletedDate}>
-                          Last completed:{" "}
-                          {new Date(task.Completed).toLocaleDateString()}
+                          Last completed: {lastCompleted}
                         </Text>
                       )}
                     </View>
                   </View>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.completeButton,
-                      {
-                        backgroundColor: task.completed ? "#e0e0e0" : (task.color || "#1a2d8e"),
-                      },
-                    ]}
-                    onPress={() => handleRefill(task)}
-                    disabled={task.completed}
-                  >
-                    <Text style={styles.completeButtonText}>
-                      {task.completed ? "Completed" : "Mark Complete"}
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                      style={[
+                        styles.completeButton,
+                        {
+                          backgroundColor: isCompleted ? "#e0e0e0" : (task.color || "#1a2d8e"),
+                        },
+                      ]}
+                      onPress={() => handleCompleteTask(task)}
+                      disabled={isCompleted}
+                    >
+                      <Text style={styles.completeButtonText}>
+                        {isCompleted ? "Completed" : "Mark Complete"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.deleteTaskButton}
+                      onPress={() => showDeleteConfirmation(task)}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                      <Text style={styles.deleteTaskButtonText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })
           )}
         </ScrollView>
       </View>
+
+      {renderDeleteModal()}
     </View>
   );
 }
@@ -370,11 +621,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  progressText: {
-    fontSize: 12,
-    color: "#666",
-    minWidth: 30,
-  },
   frequencyLabel: {
     fontSize: 12,
     color: "#666",
@@ -384,7 +630,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   completeButton: {
+    flex: 2,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
@@ -394,5 +645,90 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
     fontSize: 14,
+  },
+  deleteTaskButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: '#FFE0E0',
+    gap: 6,
+  },
+  deleteTaskButtonText: {
+    color: "#FF6B6B",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  deleteModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 8,
+  },
+  deleteModalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  deleteButton: {
+    backgroundColor: '#FF6B6B',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
 });
