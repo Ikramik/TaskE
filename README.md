@@ -18,7 +18,7 @@ TaskE is a modern, cross-platform mobile application built to serve as a persona
 - **Framework:** React Native / Expo
 - **Language:** TypeScript
 - **State Management / Hooks:** Custom React Hooks
-- **AI Integration:** [Insert the AI you used here, e.g., OpenAI API / Gemini API]
+- **AI Integration:** Custom Local TensorFlow Neural Network
 
 ---
 
